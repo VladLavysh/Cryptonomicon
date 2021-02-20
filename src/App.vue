@@ -158,7 +158,7 @@ export default {
 
           this.tickers.find(t => t.name === currentTicker.name).price =
             data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
-          // why not like this: currentTicker.price = data.USD
+          // why not like this: currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
 
           if (this.sel?.name === currentTicker.name) {
             this.graph.push(data.USD)
@@ -186,5 +186,3 @@ export default {
   }
 }
 </script>
-
-<style src="./app.css"></style>
