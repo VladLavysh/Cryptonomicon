@@ -1,5 +1,31 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
+    <div
+      v-if="isLoading"
+      class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center"
+    >
+      <svg
+        class="animate-spin -ml-1 mr-3 h-12 w-12 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          stroke-width="4"
+        ></circle>
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+      </svg>
+    </div>
+
     <div class="container">
       <div class="w-full my-4"></div>
       <section>
@@ -18,6 +44,22 @@
                 class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
                 placeholder="Например DOGE"
               />
+            </div>
+            <div
+              v-if="minimizeInputHints.length"
+              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
+            >
+              <span
+                v-for="hint of minimizeInputHints"
+                :key="hint"
+                @click="add(hint)"
+                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
+              >
+                {{ hint }}
+              </span>
+            </div>
+            <div v-if="showWarn" class="text-sm text-red-600">
+              Такой тикер уже добавлен
             </div>
           </div>
         </div>
@@ -47,7 +89,7 @@
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="t of tickers"
+            v-for="(t, idx) of tickers"
             :key="t.name"
             @click="select(t)"
             :class="{
@@ -65,7 +107,7 @@
             </div>
             <div class="w-full border-t border-gray-200"></div>
             <button
-              @click.stop="handleDelete(t)"
+              @click.stop="handleDelete(idx)"
               class="flex items-center justify-center font-medium w-full bg-gray-100 px-4 py-4 sm:px-6 text-md text-gray-500 hover:text-gray-600 hover:bg-gray-200 hover:opacity-20 transition-all focus:outline-none"
             >
               <svg
@@ -94,7 +136,7 @@
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
           <div
-            v-for="(bar, idx) of normalizeGraph()"
+            v-for="(bar, idx) of normalizeGraph"
             :key="idx"
             :style="{ height: `${bar}%` }"
             class="bg-purple-800 border w-10"
@@ -135,43 +177,39 @@
 <script>
 export default {
   name: "App",
+
   data: () => ({
     ticker: "",
     tickers: [],
     sel: null,
-    graph: []
+    graph: [],
+    showWarn: false,
+    coinsNames: [],
+    inputHints: [],
+    isLoading: true
   }),
-  methods: {
-    add() {
-      if (this.ticker) {
-        const currentTicker = {
-          name: this.ticker,
-          price: "-"
-        }
-        this.tickers.push(currentTicker)
 
-        setInterval(async () => {
-          const f = await fetch(
-            `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=cec346ebb8cb9ad36cf9433290ee741784940b05a6e0b861533a39ae5adb70c6`
-          )
-          const data = await f.json()
+  async created() {
+    const response = await fetch(
+      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+    )
+    const result = await response.json()
+    this.coinsNames = Object.keys(result.Data)
 
-          this.tickers.find(t => t.name === currentTicker.name).price =
-            data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
-          // why not like this: currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+    this.isLoading = false
 
-          if (this.sel?.name === currentTicker.name) {
-            this.graph.push(data.USD)
-          }
-        }, 5000)
+    const tickersData = localStorage.getItem("list")
 
-        this.ticker = ""
-      }
-    },
-    handleDelete(tickerToRemove) {
-      this.tickers.splice(tickerToRemove, 1)
-      this.sel = null
-    },
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData)
+      this.tickers.forEach(ticker => {
+        this.subscribeToUpdates(ticker.name)
+        console.log(ticker)
+      })
+    }
+  },
+
+  computed: {
     normalizeGraph() {
       const maxValue = Math.max(...this.graph)
       const minValue = Math.min(...this.graph)
@@ -179,9 +217,80 @@ export default {
         price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
       )
     },
+    normalizeTickerName() {
+      return this.ticker.toUpperCase()
+    },
+    minimizeInputHints() {
+      return this.inputHints.slice(0, 4)
+    }
+  },
+
+  methods: {
+    add(hint) {
+      if (hint) this.ticker = hint
+
+      if (this.ticker) {
+        const currentTicker = {
+          name: this.normalizeTickerName,
+          price: "-"
+        }
+
+        if (!this.isAlreadyAdded(currentTicker)) {
+          this.tickers.push(currentTicker)
+          this.ticker = ""
+        }
+
+        localStorage.setItem("list", JSON.stringify(this.tickers))
+
+        this.subscribeToUpdates(currentTicker.name)
+      }
+    },
+    subscribeToUpdates(tickerName) {
+      setInterval(async () => {
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=cec346ebb8cb9ad36cf9433290ee741784940b05a6e0b861533a39ae5adb70c6`
+        )
+        const data = await f.json()
+        this.tickers.find(t => t.name === tickerName).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+        // why not like this: currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+        if (this.sel?.name === tickerName) {
+          this.graph.push(data.USD)
+        }
+      }, 5000)
+    },
+    handleDelete(tickerToRemove) {
+      this.tickers.splice(tickerToRemove, 1)
+      this.sel = null
+    },
     select(ticker) {
       this.sel = ticker
       this.graph = []
+    },
+    isAlreadyAdded(currentTicker) {
+      const ticker = this.tickers.find(t => t.name === currentTicker.name)
+      if (ticker) {
+        this.showWarn = true
+        return true
+      } else {
+        this.showWarn = false
+        return false
+      }
+    },
+    lookForMatches() {
+      if (this.ticker) {
+        this.inputHints = this.coinsNames.filter(c =>
+          c.includes(this.normalizeTickerName)
+        )
+      } else this.inputHints = []
+    }
+  },
+
+  watch: {
+    ticker() {
+      this.lookForMatches()
+      // pizda
+      this.showWarn = false
     }
   }
 }
