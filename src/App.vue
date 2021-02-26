@@ -87,9 +87,29 @@
 
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
+        <p>
+          <button
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            v-if="page > 1"
+            @click="page--"
+          >
+            Назад
+          </button>
+          <button
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            v-if="hasNextPage"
+            @click="page++"
+          >
+            Вперед
+          </button>
+          
+          <div>Фильтр: <input v-model="filter" @input="page = 1"/></div>
+          <!-- eslint-disable-next-line -->
+        </p>
+        <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="(t, idx) of tickers"
+            v-for="(t, idx) of filteredTickers()"
             :key="t.name"
             @click="select(t)"
             :class="{
@@ -186,7 +206,10 @@ export default {
     showWarn: false,
     coinsNames: [],
     inputHints: [],
-    isLoading: true
+    isLoading: true,
+    page: 1,
+    filter: "",
+    hasNextPage: true
   }),
 
   async created() {
@@ -196,7 +219,17 @@ export default {
     const result = await response.json()
     this.coinsNames = Object.keys(result.Data)
 
-    this.isLoading = false
+    const windowData = Object.fromEntries(
+      new URL(window.location).searchParams.entries()
+    )
+
+    if (windowData.filter) {
+      this.filter = windowData.filter
+    }
+
+    if (windowData.page) {
+      this.page = windowData.page
+    }
 
     const tickersData = localStorage.getItem("list")
 
@@ -204,9 +237,9 @@ export default {
       this.tickers = JSON.parse(tickersData)
       this.tickers.forEach(ticker => {
         this.subscribeToUpdates(ticker.name)
-        console.log(ticker)
       })
     }
+    this.isLoading = false
   },
 
   computed: {
@@ -226,6 +259,19 @@ export default {
   },
 
   methods: {
+    filteredTickers() {
+      // pagination alg
+      const start = (this.page - 1) * 6
+      const end = this.page * 6
+
+      const filteredTickers = this.tickers.filter(ticker =>
+        ticker.name.includes(this.filter)
+      )
+
+      this.hasNextPage = filteredTickers.length > end
+
+      return filteredTickers.slice(start, end)
+    },
     add(hint) {
       if (hint) this.ticker = hint
 
@@ -238,6 +284,7 @@ export default {
         if (!this.isAlreadyAdded(currentTicker)) {
           this.tickers.push(currentTicker)
           this.ticker = ""
+          this.filter = ""
         }
 
         localStorage.setItem("list", JSON.stringify(this.tickers))
@@ -246,6 +293,7 @@ export default {
       }
     },
     subscribeToUpdates(tickerName) {
+      //console.log(tickerName)
       setInterval(async () => {
         const f = await fetch(
           `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=cec346ebb8cb9ad36cf9433290ee741784940b05a6e0b861533a39ae5adb70c6`
@@ -291,6 +339,20 @@ export default {
       this.lookForMatches()
       // pizda
       this.showWarn = false
+    },
+    filter() {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      )
+    },
+    page() {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      )
     }
   }
 }
