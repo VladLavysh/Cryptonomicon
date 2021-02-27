@@ -13,3 +13,6 @@
 .graph-toggle__option > input {
   margin-left: 5px;
 }
+.btn-disabled {
+  opacity: 0.5;
+}
