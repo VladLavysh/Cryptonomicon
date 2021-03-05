@@ -324,18 +324,17 @@ export default {
     },
     // eslint-disable-next-line
     subscribeToUpdates(tickerName) {
-      //console.log(tickerName + "\n")
-      //setInterval(async () => {
-      //  const f = await fetch(
-      //    `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=cec346ebb8cb9ad36cf9433290ee741784940b05a6e0b861533a39ae5adb70c6`
-      //  )
-      //  const data = await f.json()
-      //  this.tickers.find(t => t.name === tickerName).price =
-      //    data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
-      //  if (this.selectedTicker?.name === tickerName) {
-      //    this.graph.push(data.USD)
-      //  }
-      //}, 5000)
+      setInterval(async () => {
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=cec346ebb8cb9ad36cf9433290ee741784940b05a6e0b861533a39ae5adb70c6`
+        )
+        const data = await f.json()
+        this.tickers.find(t => t.name === tickerName).price =
+          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2)
+        if (this.selectedTicker?.name === tickerName) {
+          this.graph.push(data.USD)
+        }
+      }, 5000)
     },
 
     handleDelete(tickerToRemove) {
@@ -373,7 +372,6 @@ export default {
 
   watch: {
     tickers() {
-      console.log(this.tickers)
       localStorage.setItem("list", JSON.stringify(this.tickers))
     },
 
