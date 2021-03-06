@@ -1,4 +1,6 @@
-# cryptonomicon
+# Cryptonomicon
+
+Cryptocurrency Tracking Application
 
 ## Project setup
 ```
