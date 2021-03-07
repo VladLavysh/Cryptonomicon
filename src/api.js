@@ -1,5 +1,5 @@
 const API_KEY =
-  "380ec498044c900f249ad39326e8320a2cb4ee09b94afe4dff6911e37ef56bfc"
+  "cec346ebb8cb9ad36cf9433290ee741784940b05a6e0b861533a39ae5adb70c6"
 
 const tickersHandlers = new Map()
 const socket = new WebSocket(
@@ -51,13 +51,13 @@ function unsubscribeFromTickerOnWs(ticker) {
   })
 }
 
-export const subscribeToTicker = (ticker, cb) => {
+export function subscribeToTicker(ticker, cb) {
   const subscribers = tickersHandlers.get(ticker) || []
   tickersHandlers.set(ticker, [...subscribers, cb])
   subscribeToTickerOnWs(ticker)
 }
 
-export const unsubscribeFromTicker = ticker => {
+export function unsubscribeFromTicker(ticker) {
   tickersHandlers.delete(ticker)
   unsubscribeFromTickerOnWs(ticker)
 }
